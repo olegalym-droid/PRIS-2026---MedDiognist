@@ -1,12 +1,11 @@
 # MedDiognist
 
 ## Title
-MedDiognist - учебный медицинский помощник
+MedDiognist — учебный медицинский помощник
 
 ## Description
-MedDiognist - это учебный проект, разработанный в рамках университетского курса.  
+MedDiognist — это учебный проект, разработанный в рамках университетского курса.  
 Проект предназначен для демонстрации архитектуры интеллектуальной системы, которая принимает симптомы от пользователя и возвращает предварительную информацию о возможном диагнозе.
-
 
 ## Tech Stack
 В проекте планируется использование следующих технологий:
@@ -20,18 +19,20 @@ MedDiognist - это учебный проект, разработанный в 
 
 ## Architecture Diagram
 
-## Architecture Diagram
+![Architecture](docs/arc.png)
 
-![Architecture](docs\1.drawio.png")
+## Project Structure
 
+```
 PRIS-2026---MedDiognist/
 ├── data/
 ├── docs/
-│   └── architecture.png
+│ └── architecture.png
 ├── notebooks/
 ├── src/
-│   ├── __init__.py
-│   └── main.py
+│ ├── init.py
+│ └── main.py
 ├── .gitignore
 ├── README.md
 └── requirements.txt
+```
