@@ -1,0 +1,19 @@
+{
+  "scenario_name": "Медицинская диагностика",
+  
+  "thresholds": {
+    "min_temperature": 36.0,
+    "max_temperature": 37.5,
+    "min_age": 0,
+    "max_age": 120
+  },
+  
+  "lists": {
+    "danger_symptoms": ["chest_pain", "shortness_of_breath"],
+    "mild_symptoms": ["cough", "headache", "fever"]
+  },
+  
+  "critical_rules": {
+    "must_not_be_contagious": true
+  }
+}
