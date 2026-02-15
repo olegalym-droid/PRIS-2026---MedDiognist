@@ -1,34 +1,49 @@
 import streamlit as st
-from mock_data import test_patient as default_patient
+from knowledge_graph import create_graph, find_diseases_by_symptoms
 from logic import check_rules
 
-st.title("MedDiognist — Медицинский диагност 🩺")
+st.title("MedDiognist — Intelligent System 🧠🩺")
 
-st.write("### Настройка входящих данных пациента")
+# Загружаем граф
+G = create_graph()
 
-# Сайдбар для ввода данных
-age = st.sidebar.number_input("Возраст пациента:", value=default_patient["age"])
-temperature = st.sidebar.number_input("Температура:", value=default_patient["temperature"])
-is_contagious = st.sidebar.checkbox("Пациент заразен?", value=default_patient["is_contagious"])
-symptoms_input = st.sidebar.text_area(
-    "Симптомы:", 
-    value=", ".join(default_patient["symptoms"])
-)
-symptoms = [s.strip() for s in symptoms_input.split(",") if s.strip()]
+st.write("### Введите данные пациента")
 
-if st.button("Запустить проверку"):
+age = st.number_input("Возраст:", min_value=0, max_value=120, value=30)
+temperature = st.number_input("Температура:", value=37.0)
+is_contagious = st.checkbox("Пациент заразен?")
+symptoms_input = st.text_area("Симптомы (через запятую):")
+
+input_symptoms = [s.strip() for s in symptoms_input.split(",") if s.strip()]
+
+if st.button("Анализировать"):
+
     patient_data = {
         "age": age,
         "temperature": temperature,
         "is_contagious": is_contagious,
-        "symptoms": symptoms
+        "symptoms": input_symptoms
     }
-    
-    result = check_rules(patient_data)
-    
-    if "✅" in result:
-        st.success(result)
-    elif "⛔️" in result:
-        st.error(result)
+
+
+    rule_result = check_rules(patient_data)
+
+    if "⛔️" in rule_result:
+        st.error(rule_result)
     else:
-        st.warning(result)
+        st.info(rule_result)
+
+
+        diseases = find_diseases_by_symptoms(G, input_symptoms)
+
+        if diseases:
+            st.success(f"Возможные заболевания: {', '.join(diseases)}")
+
+            for disease in diseases:
+                meds = [
+                    n for n in G.neighbors(disease)
+                    if G.nodes[n]["type"] == "medicine"
+                ]
+                st.write(f"💊 Рекомендуемые препараты для {disease}: {', '.join(meds)}")
+        else:
+            st.warning("Болезни по введенным симптомам не найдены.")
