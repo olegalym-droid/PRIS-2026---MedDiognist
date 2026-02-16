@@ -65,3 +65,5 @@ def find_diseases_by_symptoms(graph, input_symptoms):
                 possible_diseases.append(node)
 
     return possible_diseases
+def load_graph():
+    return create_graph()

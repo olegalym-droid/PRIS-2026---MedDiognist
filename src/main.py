@@ -1,49 +1,55 @@
 import streamlit as st
-from knowledge_graph import create_graph, find_diseases_by_symptoms
-from logic import check_rules
+from logic import process_text_message
+from knowledge_graph import load_graph
 
-st.title("MedDiognist — Intelligent System 🧠🩺")
+st.set_page_config(page_title="MedDiognist Chat", layout="centered")
+st.title("MedDiognist Chatbot v2.0 🧠🩺")
 
-# Загружаем граф
-G = create_graph()
+# Загружаем граф один раз
+if "graph" not in st.session_state:
+    st.session_state.graph = load_graph()
 
-st.write("### Введите данные пациента")
+# Память чата
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-age = st.number_input("Возраст:", min_value=0, max_value=120, value=30)
-temperature = st.number_input("Температура:", value=37.0)
-is_contagious = st.checkbox("Пациент заразен?")
-symptoms_input = st.text_area("Симптомы (через запятую):")
+# Отрисовка истории
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-input_symptoms = [s.strip() for s in symptoms_input.split(",") if s.strip()]
+# Ввод пользователя
+if user_input := st.chat_input("Введите симптомы или заболевание..."):
 
-if st.button("Анализировать"):
+    # Команда reset
+    if user_input.strip().lower() == "/reset":
+        st.session_state.messages = []
+        st.rerun()
 
-    patient_data = {
-        "age": age,
-        "temperature": temperature,
-        "is_contagious": is_contagious,
-        "symptoms": input_symptoms
-    }
+    # Сообщение пользователя
+    st.session_state.messages.append({
+        "role": "user",
+        "content": user_input
+    })
 
+    with st.chat_message("user"):
+        st.markdown(user_input)
 
-    rule_result = check_rules(patient_data)
+    # Ответ бота
+    bot_response = process_text_message(
+        user_input,
+        st.session_state.graph
+    )
 
-    if "⛔️" in rule_result:
-        st.error(rule_result)
-    else:
-        st.info(rule_result)
+    # Если логика вернула reset
+    if bot_response == "__RESET__":
+        st.session_state.messages = []
+        st.rerun()
 
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": bot_response
+    })
 
-        diseases = find_diseases_by_symptoms(G, input_symptoms)
-
-        if diseases:
-            st.success(f"Возможные заболевания: {', '.join(diseases)}")
-
-            for disease in diseases:
-                meds = [
-                    n for n in G.neighbors(disease)
-                    if G.nodes[n]["type"] == "medicine"
-                ]
-                st.write(f"💊 Рекомендуемые препараты для {disease}: {', '.join(meds)}")
-        else:
-            st.warning("Болезни по введенным симптомам не найдены.")
+    with st.chat_message("assistant"):
+        st.markdown(bot_response)
