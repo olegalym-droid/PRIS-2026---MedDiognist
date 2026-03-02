@@ -1,55 +1,63 @@
 import streamlit as st
-from logic import process_text_message
 from knowledge_graph import load_graph
+from logic import process_text_message
 
 st.set_page_config(page_title="MedDiognist Chat", layout="centered")
-st.title("MedDiognist Chatbot v2.0 🧠🩺")
+st.title("MedDiognist Chatbot 🧠🩺")
 
-# Загружаем граф один раз
 if "graph" not in st.session_state:
     st.session_state.graph = load_graph()
 
-# Память чата
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Отрисовка истории
+if "patient_data" not in st.session_state:
+    st.session_state.patient_data = {
+        "confirmed": [],
+        "denied": [],
+        "pending_question": None,
+        "emergency_triggered": False,
+        "emergency_symptom": None,
+    }
+
+with st.sidebar:
+    st.markdown("### Текущее состояние")
+    st.write("✅ Подтверждено:", ", ".join(st.session_state.patient_data["confirmed"]) or "—")
+    st.write("❌ Отрицано:", ", ".join(st.session_state.patient_data["denied"]) or "—")
+    st.write("❓ Вопрос:", st.session_state.patient_data["pending_question"] or "—")
+    if st.button("Сбросить (/reset)"):
+        st.session_state.messages = []
+        st.session_state.patient_data = {
+            "confirmed": [],
+            "denied": [],
+            "pending_question": None,
+            "emergency_triggered": False,
+            "emergency_symptom": None,
+        }
+        st.rerun()
+
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Ввод пользователя
-if user_input := st.chat_input("Введите симптомы или заболевание..."):
-
-    # Команда reset
-    if user_input.strip().lower() == "/reset":
-        st.session_state.messages = []
-        st.rerun()
-
-    # Сообщение пользователя
-    st.session_state.messages.append({
-        "role": "user",
-        "content": user_input
-    })
-
+if user_input := st.chat_input("Опишите симптомы... (или /reset)"):
+    st.session_state.messages.append({"role": "user", "content": user_input})
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    # Ответ бота
-    bot_response = process_text_message(
-        user_input,
-        st.session_state.graph
-    )
+    bot_response = process_text_message(user_input, st.session_state.graph, st.session_state.patient_data)
 
-    # Если логика вернула reset
     if bot_response == "__RESET__":
         st.session_state.messages = []
+        st.session_state.patient_data = {
+            "confirmed": [],
+            "denied": [],
+            "pending_question": None,
+            "emergency_triggered": False,
+            "emergency_symptom": None,
+        }
         st.rerun()
 
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": bot_response
-    })
-
+    st.session_state.messages.append({"role": "assistant", "content": bot_response})
     with st.chat_message("assistant"):
         st.markdown(bot_response)
