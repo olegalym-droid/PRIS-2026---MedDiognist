@@ -17,22 +17,29 @@ if "patient_data" not in st.session_state:
         "denied": [],
         "pending_question": None,
         "emergency_triggered": False,
-        "emergency_symptom": None,
+        "emergency_term": None,
     }
 
+if "lang" not in st.session_state:
+    st.session_state.lang = "ru"
+
 with st.sidebar:
-    st.markdown("### Текущее состояние")
-    st.write("✅ Подтверждено:", ", ".join(st.session_state.patient_data["confirmed"]) or "—")
-    st.write("❌ Отрицано:", ", ".join(st.session_state.patient_data["denied"]) or "—")
-    st.write("❓ Вопрос:", st.session_state.patient_data["pending_question"] or "—")
-    if st.button("Сбросить (/reset)"):
+    st.markdown("### Settings")
+    st.session_state.lang = st.radio("Language / Язык", ["ru", "en"], index=0 if st.session_state.lang == "ru" else 1)
+
+    st.markdown("### Текущее состояние / State")
+    st.write("✅ Confirmed:", ", ".join(st.session_state.patient_data["confirmed"]) or "—")
+    st.write("❌ Denied:", ", ".join(st.session_state.patient_data["denied"]) or "—")
+    st.write("❓ Pending:", st.session_state.patient_data["pending_question"] or "—")
+
+    if st.button("Reset (/reset)"):
         st.session_state.messages = []
         st.session_state.patient_data = {
             "confirmed": [],
             "denied": [],
             "pending_question": None,
             "emergency_triggered": False,
-            "emergency_symptom": None,
+            "emergency_term": None,
         }
         st.rerun()
 
@@ -45,7 +52,12 @@ if user_input := st.chat_input("Опишите симптомы... (или /rese
     with st.chat_message("user"):
         st.markdown(user_input)
 
-    bot_response = process_text_message(user_input, st.session_state.graph, st.session_state.patient_data)
+    bot_response = process_text_message(
+        user_input,
+        st.session_state.graph,
+        st.session_state.patient_data,
+        lang=st.session_state.lang
+    )
 
     if bot_response == "__RESET__":
         st.session_state.messages = []
@@ -54,7 +66,7 @@ if user_input := st.chat_input("Опишите симптомы... (или /rese
             "denied": [],
             "pending_question": None,
             "emergency_triggered": False,
-            "emergency_symptom": None,
+            "emergency_term": None,
         }
         st.rerun()
 
