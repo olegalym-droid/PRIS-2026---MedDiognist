@@ -1,6 +1,6 @@
 import streamlit as st
 from knowledge_graph import load_graph
-from logic import process_text_message
+from logic import process_text_message, triage_label
 
 st.set_page_config(page_title="MedDiognist Chat", layout="centered")
 st.title("MedDiognist Chatbot 🧠🩺")
@@ -18,6 +18,7 @@ if "patient_data" not in st.session_state:
         "pending_question": None,
         "emergency_triggered": False,
         "emergency_term": None,
+        "triage": None,
     }
 
 if "lang" not in st.session_state:
@@ -25,12 +26,21 @@ if "lang" not in st.session_state:
 
 with st.sidebar:
     st.markdown("### Settings")
-    st.session_state.lang = st.radio("Language / Язык", ["ru", "en"], index=0 if st.session_state.lang == "ru" else 1)
+    st.session_state.lang = st.radio(
+        "Language / Язык",
+        ["ru", "en"],
+        index=0 if st.session_state.lang == "ru" else 1
+    )
 
-    st.markdown("### Текущее состояние / State")
+    st.markdown("### Состояние / State")
     st.write("✅ Confirmed:", ", ".join(st.session_state.patient_data["confirmed"]) or "—")
     st.write("❌ Denied:", ", ".join(st.session_state.patient_data["denied"]) or "—")
     st.write("❓ Pending:", st.session_state.patient_data["pending_question"] or "—")
+    st.write(
+        "🚦 Triage:",
+        triage_label(st.session_state.patient_data["triage"], st.session_state.lang)
+        if st.session_state.patient_data["triage"] else "—"
+    )
 
     if st.button("Reset (/reset)"):
         st.session_state.messages = []
@@ -40,6 +50,7 @@ with st.sidebar:
             "pending_question": None,
             "emergency_triggered": False,
             "emergency_term": None,
+            "triage": None,
         }
         st.rerun()
 
@@ -67,6 +78,7 @@ if user_input := st.chat_input("Опишите симптомы... (или /rese
             "pending_question": None,
             "emergency_triggered": False,
             "emergency_term": None,
+            "triage": None,
         }
         st.rerun()
 
