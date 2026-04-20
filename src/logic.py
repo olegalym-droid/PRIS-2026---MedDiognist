@@ -1,19 +1,13 @@
-# src/logic.py
-
 import copy
-import re
 from collections import defaultdict
-from difflib import get_close_matches
 
 from knowledge_graph import (
     DISPLAY_RU,
-    SYNONYMS_RU_TO_EN,
     format_case_title,
     format_specialty_name,
 )
+from nlp import extract_symptoms, is_no, is_yes, normalize_text
 
-YES_WORDS = {"да", "есть", "ага", "угу", "конечно", "yes", "y", "yeah", "yep"}
-NO_WORDS = {"нет", "неа", "не", "no", "n", "nope"}
 
 DANGER_TERMS = {
     "chest pain",
@@ -93,8 +87,25 @@ SYMPTOM_WEIGHTS = {
 }
 
 SPECIALTY_HINTS = {
-    "endocrinology": {"excessive thirst", "urinary frequency", "weight loss", "blurred vision", "weight gain", "tremor", "palpitations"},
-    "neurology": {"memory loss", "forgetfulness", "confusion", "drowsiness", "headache", "dizziness", "numbness", "seizure"},
+    "endocrinology": {
+        "excessive thirst",
+        "urinary frequency",
+        "weight loss",
+        "blurred vision",
+        "weight gain",
+        "tremor",
+        "palpitations",
+    },
+    "neurology": {
+        "memory loss",
+        "forgetfulness",
+        "confusion",
+        "drowsiness",
+        "headache",
+        "dizziness",
+        "numbness",
+        "seizure",
+    },
     "hepatology": {"jaundice", "abdominal pain", "nausea", "fatigue", "itching"},
     "ophthalmology": {"blurred vision", "vision loss", "headache"},
     "cardiology": {"chest pain", "shortness of breath", "palpitations", "dizziness", "leg swelling"},
@@ -105,46 +116,35 @@ SPECIALTY_HINTS = {
     "internal medicine": {"fever", "fatigue", "weakness", "headache", "dizziness", "cough", "nausea"},
 }
 
-def normalize_text(text: str) -> str:
-    text = str(text).lower().strip()
-    text = re.sub(r"[,_;/]+", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text
-
-
-def apply_ru_to_en(text: str) -> str:
-    normalized = text
-    for ru, en in sorted(SYNONYMS_RU_TO_EN.items(), key=lambda x: len(x[0]), reverse=True):
-        normalized = re.sub(rf"\b{re.escape(ru)}\b", en, normalized)
-    return normalized
-
-
-def get_symptom_nodes(graph):
-    return [node for node, data in graph.nodes(data=True) if data.get("type") == "symptom"]
-
-
-def extract_symptoms(text: str, graph, fuzzy_cutoff: float = 0.88):
-    text = normalize_text(text)
-    text = apply_ru_to_en(text)
-
-    symptom_nodes = get_symptom_nodes(graph)
-    found = set()
-
-    padded_text = f" {text} "
-    for symptom in sorted(symptom_nodes, key=len, reverse=True):
-        if f" {symptom} " in padded_text:
-            found.add(symptom)
-
-    tokens = re.findall(r"[a-zа-яё]+", text)
-    for token in tokens:
-        if token in symptom_nodes:
-            found.add(token)
-            continue
-        close = get_close_matches(token, symptom_nodes, n=1, cutoff=fuzzy_cutoff)
-        if close:
-            found.add(close[0])
-
-    return sorted(found)
+PREFERRED_RU_SYMPTOMS = {
+    "fever": "температура",
+    "chills": "озноб",
+    "fatigue": "усталость",
+    "weakness": "слабость",
+    "headache": "головная боль",
+    "dizziness": "головокружение",
+    "cough": "кашель",
+    "sore throat": "боль в горле",
+    "shortness of breath": "одышка",
+    "chest pain": "боль в груди",
+    "nausea": "тошнота",
+    "vomiting": "рвота",
+    "diarrhea": "диарея",
+    "abdominal pain": "боль в животе",
+    "back pain": "боль в спине",
+    "flank pain": "боль в пояснице",
+    "rash": "сыпь",
+    "itching": "зуд",
+    "dysuria": "боль при мочеиспускании",
+    "urinary frequency": "частое мочеиспускание",
+    "memory loss": "потеря памяти",
+    "forgetfulness": "забывчивость",
+    "confusion": "спутанность сознания",
+    "blurred vision": "размытое зрение",
+    "vision loss": "ухудшение зрения",
+    "jaundice": "пожелтение кожи",
+    "palpitations": "учащенное сердцебиение",
+}
 
 
 def symptom_weight(symptom: str) -> float:
@@ -214,6 +214,8 @@ def triage_advice(triage: str, lang: str = "ru") -> str:
 
 def format_symptom(symptom: str, lang: str, graph) -> str:
     if lang == "ru":
+        if symptom in PREFERRED_RU_SYMPTOMS:
+            return PREFERRED_RU_SYMPTOMS[symptom]
         return graph.nodes[symptom].get("ru") or DISPLAY_RU.get(symptom) or symptom
     return symptom
 
@@ -331,10 +333,11 @@ def analyze_case(text: str, graph, patient_data: dict, lang: str = "ru", mutate:
     state = patient_data if mutate else copy.deepcopy(patient_data)
     _ensure_patient_data(state)
 
-    text = normalize_text(text)
-
-    if text == "/reset":
+    raw_text = str(text).strip()
+    if raw_text == "/reset":
         return {"action": "reset"}
+
+    text = normalize_text(text)
 
     if state["emergency_triggered"]:
         term = state["emergency_term"]
@@ -351,10 +354,10 @@ def analyze_case(text: str, graph, patient_data: dict, lang: str = "ru", mutate:
 
     extracted = extract_symptoms(text, graph)
 
-    if text in YES_WORDS and state["pending_question"]:
+    if is_yes(text) and state["pending_question"]:
         _append_unique(state["confirmed"], state["pending_question"])
         state["pending_question"] = None
-    elif text in NO_WORDS and state["pending_question"]:
+    elif is_no(text) and state["pending_question"]:
         _append_unique(state["denied"], state["pending_question"])
         state["pending_question"] = None
 
