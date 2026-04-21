@@ -3,19 +3,36 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 import os
+import re
+
+from knowledge_graph import SYNONYMS_RU_TO_EN
+
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_PATH = os.path.join(BASE_DIR, "data", "raw", "mtsamples.csv")
+
+
+def normalize_text(text: str) -> str:
+    text = str(text).lower().strip()
+    text = re.sub(r"[,_;/]+", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text
+
+
+def apply_ru_to_en(text: str) -> str:
+    normalized = text
+    for ru, en in sorted(SYNONYMS_RU_TO_EN.items(), key=lambda x: len(x[0]), reverse=True):
+        normalized = re.sub(rf"\b{re.escape(ru)}\b", en, normalized)
+    return normalized
 
 
 class CaseSimilarity:
     def __init__(self):
         self.df = pd.read_csv(DATA_PATH)
 
-        # берем только описание
         self.df = self.df[["sample_name", "description"]].dropna()
 
-        # уменьшаем размер (ускорение)
+        # ускоряем
         self.df = self.df.head(2000)
 
         self.vectorizer = TfidfVectorizer(
@@ -25,7 +42,14 @@ class CaseSimilarity:
 
         self.matrix = self.vectorizer.fit_transform(self.df["description"])
 
+    def preprocess_query(self, text: str) -> str:
+        text = normalize_text(text)
+        text = apply_ru_to_en(text)
+        return text
+
     def find_similar(self, text: str, top_k: int = 3):
+        text = self.preprocess_query(text)
+
         if not text.strip():
             return []
 
@@ -36,9 +60,15 @@ class CaseSimilarity:
 
         results = []
         for idx in top_indices:
+            score = float(similarities[idx])
+
+            # фильтр мусора
+            if score < 0.05:
+                continue
+
             results.append({
                 "case": self.df.iloc[idx]["sample_name"],
-                "score": round(float(similarities[idx]) * 100, 2)
+                "score": round(score * 100, 2)
             })
 
         return results
